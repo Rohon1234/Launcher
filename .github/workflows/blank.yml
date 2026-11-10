@@ -2,31 +2,49 @@ name: Build XOSLauncher
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
+
+permissions:
+  contents: read
 
 jobs:
   build:
+    name: Build XOSLauncher APK
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Create XOSLauncher project
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK
+        run: |
+          sdkmanager "platform-tools"
+          sdkmanager "platforms;android-35"
+          sdkmanager "build-tools;35.0.0"
+
+      - name: Create Android project
         shell: bash
         run: |
           set -e
 
-          rm -rf app build.gradle.kts settings.gradle.kts gradle.properties
+          rm -rf app
+          rm -f build.gradle settings.gradle gradle.properties
+
           mkdir -p app/src/main/java/com/xoslauncher
           mkdir -p app/src/main/res/values
           mkdir -p app/src/main/res/drawable
-          mkdir -p app/src/main/res/mipmap-hdpi
           mkdir -p .github/workflows
 
-          cat > settings.gradle.kts <<'EOF'
+          cat > settings.gradle <<'EOF'
           pluginManagement {
               repositories {
                   google()
@@ -47,10 +65,10 @@ jobs:
           include(":app")
           EOF
 
-          cat > build.gradle.kts <<'EOF'
+          cat > build.gradle <<'EOF'
           plugins {
-              id("com.android.application") version "8.7.3" apply false
-              id("org.jetbrains.kotlin.android") version "2.0.21" apply false
+              id 'com.android.application' version '8.7.3' apply false
+              id 'org.jetbrains.kotlin.android' version '2.0.21' apply false
           }
           EOF
 
@@ -60,46 +78,44 @@ jobs:
           android.nonTransitiveRClass=true
           EOF
 
-          cat > app/build.gradle.kts <<'EOF'
+          cat > app/build.gradle <<'EOF'
           plugins {
-              id("com.android.application")
-              id("org.jetbrains.kotlin.android")
+              id 'com.android.application'
+              id 'org.jetbrains.kotlin.android'
           }
 
           android {
-              namespace = "com.xoslauncher"
-              compileSdk = 35
+              namespace 'com.xoslauncher'
+              compileSdk 35
 
               defaultConfig {
-                  applicationId = "com.xoslauncher"
-                  minSdk = 26
-                  targetSdk = 35
-                  versionCode = 1
-                  versionName = "1.0"
+                  applicationId 'com.xoslauncher'
+                  minSdk 26
+                  targetSdk 35
+                  versionCode 1
+                  versionName '1.0'
               }
 
-              buildTypes {
-                  release {
-                      isMinifyEnabled = false
-                  }
+              buildFeatures {
+                  viewBinding true
               }
 
               compileOptions {
-                  sourceCompatibility = JavaVersion.VERSION_17
-                  targetCompatibility = JavaVersion.VERSION_17
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
               }
 
               kotlinOptions {
-                  jvmTarget = "17"
+                  jvmTarget = '17'
               }
           }
 
           dependencies {
-              implementation("androidx.core:core-ktx:1.15.0")
-              implementation("androidx.appcompat:appcompat:1.7.0")
-              implementation("androidx.activity:activity-ktx:1.10.0")
-              implementation("androidx.recyclerview:recyclerview:1.3.2")
-              implementation("com.google.android.material:material:1.12.0")
+              implementation 'androidx.core:core-ktx:1.15.0'
+              implementation 'androidx.activity:activity-ktx:1.10.0'
+              implementation 'androidx.appcompat:appcompat:1.7.0'
+              implementation 'androidx.recyclerview:recyclerview:1.3.2'
+              implementation 'com.google.android.material:material:1.12.0'
           }
           EOF
 
@@ -109,90 +125,114 @@ jobs:
               <color name="black">#000000</color>
               <color name="white">#FFFFFF</color>
               <color name="blue">#1677FF</color>
-              <color name="dark_panel">#DD202020</color>
           </resources>
           EOF
 
           cat > app/src/main/res/values/themes.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
-              <style name="Theme.XOSLauncher" parent="Theme.Material3.DayNight.NoActionBar">
+
+              <style
+                  name="Theme.XOSLauncher"
+                  parent="Theme.Material3.DayNight.NoActionBar">
+
                   <item name="android:fontFamily">sans</item>
-                  <item name="android:windowLightStatusBar">false</item>
+                  <item name="android:windowActionModeOverlay">true</item>
                   <item name="android:statusBarColor">@android:color/transparent</item>
                   <item name="android:navigationBarColor">@android:color/black</item>
-                  <item name="android:windowActionModeOverlay">true</item>
+
               </style>
+
           </resources>
           EOF
 
           cat > app/src/main/AndroidManifest.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-              <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"/>
+          <manifest
+              xmlns:android="http://schemas.android.com/apk/res/android">
+
+              <uses-permission
+                  android:name="android.permission.QUERY_ALL_PACKAGES" />
 
               <application
-                  android:theme="@style/Theme.XOSLauncher"
-                  android:label="XOSLauncher"
                   android:allowBackup="false"
-                  android:supportsRtl="true">
+                  android:label="XOSLauncher"
+                  android:supportsRtl="true"
+                  android:theme="@style/Theme.XOSLauncher">
 
                   <activity
                       android:name=".MainActivity"
-                      android:screenOrientation="portrait"
                       android:exported="true">
 
                       <intent-filter>
-                          <action android:name="android.intent.action.MAIN"/>
-                          <category android:name="android.intent.category.HOME"/>
-                          <category android:name="android.intent.category.DEFAULT"/>
+
+                          <action
+                              android:name="android.intent.action.MAIN" />
+
+                          <category
+                              android:name="android.intent.category.HOME" />
+
+                          <category
+                              android:name="android.intent.category.DEFAULT" />
+
                       </intent-filter>
 
                   </activity>
 
               </application>
+
           </manifest>
           EOF
 
           cat > app/src/main/java/com/xoslauncher/MainActivity.kt <<'EOF'
           package com.xoslauncher
 
-          import android.app.*
-          import android.content.*
+          import android.app.WallpaperManager
+          import android.content.Intent
           import android.graphics.Color
           import android.net.Uri
           import android.os.Bundle
           import android.provider.Settings
-          import android.view.*
+          import android.view.Gravity
+          import android.view.MotionEvent
+          import android.view.View
           import android.widget.*
           import androidx.activity.ComponentActivity
           import androidx.activity.result.contract.ActivityResultContracts
           import androidx.recyclerview.widget.GridLayoutManager
           import androidx.recyclerview.widget.RecyclerView
-          import kotlin.math.abs
+          import kotlin.math.sqrt
 
           class MainActivity : ComponentActivity() {
 
               private lateinit var root: FrameLayout
-              private lateinit var home: LinearLayout
+              private var pinchStart = 0f
               private var editMode = false
-              private val selected = mutableSetOf<String>()
-              private var gestureStartDistance = 0f
+
+              private val galleryPicker =
+                  registerForActivityResult(
+                      ActivityResultContracts.GetContent()
+                  ) { uri ->
+                      uri?.let {
+                          applyWallpaper(it)
+                      }
+                  }
 
               override fun onCreate(savedInstanceState: Bundle?) {
                   super.onCreate(savedInstanceState)
                   showHome()
               }
 
-              private fun dp(v: Int): Int =
-                  (v * resources.displayMetrics.density).toInt()
+              private fun dp(value: Int): Int =
+                  (value * resources.displayMetrics.density).toInt()
 
-              private fun text(
+              private fun makeText(
                   value: String,
                   size: Float,
                   color: Int = Color.WHITE
               ): TextView {
+
                   return TextView(this).apply {
                       text = value
                       textSize = size
@@ -202,19 +242,29 @@ jobs:
               }
 
               private fun showHome() {
+
                   editMode = false
-                  selected.clear()
 
                   root = FrameLayout(this)
                   root.setBackgroundColor(Color.BLACK)
 
-                  home = LinearLayout(this)
-                  home.orientation = LinearLayout.VERTICAL
-                  home.setPadding(dp(20), dp(20), dp(20), 0)
+                  val content =
+                      LinearLayout(this).apply {
+                          orientation = LinearLayout.VERTICAL
+                          setPadding(
+                              dp(20),
+                              dp(35),
+                              dp(20),
+                              dp(20)
+                          )
+                      }
 
-                  val wallpaper = ImageView(this)
-                  wallpaper.setBackgroundColor(Color.BLACK)
-                  wallpaper.scaleType = ImageView.ScaleType.CENTER_CROP
+                  val wallpaper =
+                      ImageView(this).apply {
+                          setBackgroundColor(Color.BLACK)
+                          scaleType =
+                              ImageView.ScaleType.CENTER_CROP
+                      }
 
                   root.addView(
                       wallpaper,
@@ -225,207 +275,232 @@ jobs:
                   )
 
                   root.addView(
-                      home,
+                      content,
                       FrameLayout.LayoutParams(
                           -1,
                           -1
                       )
                   )
 
-                  createClockWidget()
-                  createHomeApps()
-                  createSearchBar()
+                  val clock =
+                      makeText(
+                          "08:45",
+                          52f
+                      )
 
-                  root.setOnTouchListener { _, event ->
-                      handlePinch(event)
-                  }
-
-                  setContentView(root)
-              }
-
-              private fun createClockWidget() {
-                  val panel = LinearLayout(this)
-                  panel.orientation = LinearLayout.HORIZONTAL
-                  panel.gravity = Gravity.CENTER_VERTICAL
-                  panel.setPadding(dp(20), dp(20), dp(20), dp(20))
-
-                  val clock = text(
-                      String.format(
-                          "%02d:%02d",
-                          java.util.Calendar.getInstance()
-                              .get(java.util.Calendar.HOUR_OF_DAY),
-                          java.util.Calendar.getInstance()
-                              .get(java.util.Calendar.MINUTE)
-                      ),
-                      52f
-                  )
-
-                  panel.addView(
+                  content.addView(
                       clock,
                       LinearLayout.LayoutParams(
-                          0,
-                          dp(120),
-                          1f
-                      )
-                  )
-
-                  val date = text("Tue, Nov 10\n26° ☾", 20f)
-                  date.gravity = Gravity.CENTER
-                  panel.addView(
-                      date,
-                      LinearLayout.LayoutParams(
-                          0,
-                          dp(120),
-                          1f
-                      )
-                  )
-
-                  home.addView(
-                      panel,
-                      LinearLayout.LayoutParams(
                           -1,
-                          dp(170)
+                          dp(120)
                       )
                   )
-              }
 
-              private fun createHomeApps() {
-                  val apps = getLaunchableApps().take(8)
+                  val apps =
+                      LinearLayout(this).apply {
+                          orientation =
+                              LinearLayout.VERTICAL
+                      }
 
-                  val grid = GridLayout(this)
-                  grid.columnCount = 4
+                  val launcherApps =
+                      getLauncherApps().take(8)
 
-                  for (app in apps) {
-                      val item = LinearLayout(this)
-                      item.orientation = LinearLayout.VERTICAL
-                      item.gravity = Gravity.CENTER
+                  for (app in launcherApps) {
 
-                      val icon = ImageView(this)
-                      icon.setImageDrawable(app.icon)
-                      icon.scaleType = ImageView.ScaleType.CENTER_INSIDE
+                      val item =
+                          LinearLayout(this).apply {
+                              orientation =
+                                  LinearLayout.HORIZONTAL
+                              gravity =
+                                  Gravity.CENTER_VERTICAL
+                              setPadding(
+                                  dp(10),
+                                  dp(8),
+                                  dp(10),
+                                  dp(8)
+                              )
+                          }
+
+                      val icon =
+                          ImageView(this).apply {
+                              setImageDrawable(
+                                  app.loadIcon(
+                                      packageManager
+                                  )
+                              )
+                          }
 
                       item.addView(
                           icon,
                           LinearLayout.LayoutParams(
-                              dp(64),
-                              dp(64)
+                              dp(58),
+                              dp(58)
                           )
                       )
 
-                      val name = text(
-                          app.label,
-                          13f
-                      )
-
                       item.addView(
-                          name,
+                          makeText(
+                              app.loadLabel(
+                                  packageManager
+                              ).toString(),
+                              15f
+                          ),
                           LinearLayout.LayoutParams(
-                              dp(82),
-                              dp(38)
+                              0,
+                              dp(58),
+                              1f
                           )
                       )
 
                       item.setOnClickListener {
-                          launch(app.packageName)
+
+                          packageManager
+                              .getLaunchIntentForPackage(
+                                  app.activityInfo.packageName
+                              )
+                              ?.let {
+                                  startActivity(it)
+                              }
                       }
 
-                      grid.addView(
-                          item,
-                          GridLayout.LayoutParams().apply {
-                              width = 0
-                              height = dp(110)
-                              columnSpec =
-                                  GridLayout.spec(
-                                      GridLayout.UNDEFINED,
-                                      1f
-                                  )
-                          }
-                      )
+                      apps.addView(item)
                   }
 
-                  home.addView(
-                      grid,
+                  content.addView(
+                      apps,
                       LinearLayout.LayoutParams(
                           -1,
-                          dp(230)
+                          0,
+                          1f
                       )
                   )
-              }
 
-              private fun createSearchBar() {
-                  val search = text(
-                      "🔎   Search",
-                      17f,
-                      Color.LTGRAY
+                  val search =
+                      makeText(
+                          "⌕   Search",
+                          17f,
+                          Color.LTGRAY
+                      )
+
+                  search.setBackgroundColor(
+                      Color.rgb(45,45,45)
                   )
-
-                  search.setBackgroundColor(Color.rgb(45,45,45))
 
                   search.setOnClickListener {
                       showAppDrawer()
                   }
 
-                  home.addView(
+                  content.addView(
                       search,
                       LinearLayout.LayoutParams(
                           -1,
                           dp(58)
-                      ).apply {
-                          topMargin = dp(20)
-                          bottomMargin = dp(30)
-                      }
+                      )
                   )
+
+                  root.setOnTouchListener {
+                      _, event ->
+                      detectPinch(event)
+                  }
+
+                  setContentView(root)
               }
 
-              private fun handlePinch(event: MotionEvent): Boolean {
+              private fun detectPinch(
+                  event: MotionEvent
+              ): Boolean {
+
+                  if (event.pointerCount < 2)
+                      return true
+
                   when (event.actionMasked) {
+
                       MotionEvent.ACTION_POINTER_DOWN -> {
-                          if (event.pointerCount >= 2) {
-                              gestureStartDistance = distance(event)
-                          }
+                          pinchStart =
+                              fingerDistance(event)
                       }
 
                       MotionEvent.ACTION_MOVE -> {
-                          if (
-                              event.pointerCount >= 2 &&
-                              gestureStartDistance > 0
-                          ) {
-                              val current = distance(event)
 
-                              if (
-                                  current < gestureStartDistance * 0.65f &&
-                                  !editMode
-                              ) {
-                                  showEditMode()
-                                  gestureStartDistance = 0f
-                              }
+                          val current =
+                              fingerDistance(event)
+
+                          if (
+                              pinchStart > 0 &&
+                              current < pinchStart * 0.65f &&
+                              !editMode
+                          ) {
+
+                              showEditMode()
+                              pinchStart = 0f
                           }
                       }
 
                       MotionEvent.ACTION_UP,
                       MotionEvent.ACTION_CANCEL -> {
-                          gestureStartDistance = 0f
+                          pinchStart = 0f
                       }
                   }
 
                   return true
               }
 
-              private fun distance(e: MotionEvent): Float {
-                  val dx = e.getX(0) - e.getX(1)
-                  val dy = e.getY(0) - e.getY(1)
-                  return kotlin.math.sqrt(dx * dx + dy * dy)
+              private fun fingerDistance(
+                  event: MotionEvent
+              ): Float {
+
+                  val dx =
+                      event.getX(0) -
+                              event.getX(1)
+
+                  val dy =
+                      event.getY(0) -
+                              event.getY(1)
+
+                  return sqrt(
+                      dx * dx +
+                              dy * dy
+                  )
               }
 
               private fun showEditMode() {
+
                   editMode = true
-                  home.removeAllViews()
 
-                  createClockWidget()
-                  createHomeApps()
+                  val content =
+                      LinearLayout(this).apply {
+                          orientation =
+                              LinearLayout.VERTICAL
+                          setBackgroundColor(
+                              Color.rgb(
+                                  15,
+                                  15,
+                                  15
+                              )
+                          )
+                          setPadding(
+                              dp(20),
+                              dp(40),
+                              dp(20),
+                              dp(20)
+                          )
+                      }
 
-                  val spacer = Space(this)
-                  home.addView(
+                  content.addView(
+                      makeText(
+                          "Home Screen",
+                          26f
+                      ),
+                      LinearLayout.LayoutParams(
+                          -1,
+                          dp(70)
+                      )
+                  )
+
+                  val spacer =
+                      Space(this)
+
+                  content.addView(
                       spacer,
                       LinearLayout.LayoutParams(
                           -1,
@@ -434,20 +509,21 @@ jobs:
                       )
                   )
 
-                  val bottom = LinearLayout(this)
-                  bottom.orientation = LinearLayout.HORIZONTAL
-                  bottom.gravity = Gravity.CENTER
+                  val menu =
+                      LinearLayout(this).apply {
+                          gravity = Gravity.CENTER
+                      }
 
-                  addEditOption(
-                      bottom,
+                  addEditButton(
+                      menu,
                       "▧",
                       "Wallpapers"
                   ) {
                       showWallpapers()
                   }
 
-                  addEditOption(
-                      bottom,
+                  addEditButton(
+                      menu,
                       "▦",
                       "Widgets"
                   ) {
@@ -458,8 +534,8 @@ jobs:
                       ).show()
                   }
 
-                  addEditOption(
-                      bottom,
+                  addEditButton(
+                      menu,
                       "◉",
                       "Icon Style"
                   ) {
@@ -470,55 +546,64 @@ jobs:
                       ).show()
                   }
 
-                  addEditOption(
-                      bottom,
+                  addEditButton(
+                      menu,
                       "⚙",
                       "Settings"
                   ) {
                       showHomeScreenMode()
                   }
 
-                  home.addView(
-                      bottom,
+                  content.addView(
+                      menu,
                       LinearLayout.LayoutParams(
                           -1,
-                          dp(150)
+                          dp(130)
                       )
                   )
+
+                  setContentView(content)
               }
 
-              private fun addEditOption(
+              private fun addEditButton(
                   parent: LinearLayout,
                   icon: String,
                   title: String,
                   action: () -> Unit
               ) {
-                  val box = LinearLayout(this)
-                  box.orientation = LinearLayout.VERTICAL
-                  box.gravity = Gravity.CENTER
 
-                  val i = text(icon, 28f)
-                  i.setBackgroundColor(Color.rgb(45,45,45))
+                  val box =
+                      LinearLayout(this).apply {
+                          orientation =
+                              LinearLayout.VERTICAL
+                          gravity =
+                              Gravity.CENTER
+                          setOnClickListener {
+                              action()
+                          }
+                      }
 
                   box.addView(
-                      i,
+                      makeText(
+                          icon,
+                          28f
+                      ),
                       LinearLayout.LayoutParams(
-                          dp(68),
-                          dp(68)
+                          dp(65),
+                          dp(65)
                       )
                   )
 
                   box.addView(
-                      text(title, 14f),
+                      makeText(
+                          title,
+                          13f
+                      ),
                       LinearLayout.LayoutParams(
                           dp(100),
-                          dp(40)
+                          dp(35)
                       )
                   )
-
-                  box.setOnClickListener {
-                      action()
-                  }
 
                   parent.addView(
                       box,
@@ -531,26 +616,34 @@ jobs:
               }
 
               private fun showWallpapers() {
-                  val page = basePage("Wallpapers")
 
-                  val cards = LinearLayout(this)
-                  cards.orientation = LinearLayout.HORIZONTAL
-                  cards.setPadding(dp(16), dp(15), dp(16), dp(15))
+                  val page =
+                      settingsPage("Wallpapers")
 
-                  addWallpaperCard(
+                  val cards =
+                      LinearLayout(this).apply {
+                          orientation =
+                              LinearLayout.HORIZONTAL
+                          setPadding(
+                              dp(15),
+                              dp(15),
+                              dp(15),
+                              dp(15)
+                          )
+                      }
+
+                  wallpaperCard(
                       cards,
-                      "Gallery",
-                      Color.rgb(255,180,45)
+                      "Gallery"
                   ) {
-                      galleryLauncher.launch(
-                          arrayOf("image/*")
+                      galleryPicker.launch(
+                          "image/*"
                       )
                   }
 
-                  addWallpaperCard(
+                  wallpaperCard(
                       cards,
-                      "Static Wallpapers",
-                      Color.rgb(100,130,230)
+                      "Static Wallpapers"
                   ) {
                       showStaticWallpapers()
                   }
@@ -563,49 +656,55 @@ jobs:
                       )
                   )
 
-                  val staticRow = text(
-                      "Static Wallpapers   19   ›",
-                      20f,
-                      Color.BLACK
-                  )
+                  val static =
+                      makeText(
+                          "Static Wallpapers   19   ›",
+                          19f,
+                          Color.BLACK
+                      )
 
-                  staticRow.gravity = Gravity.CENTER_VERTICAL
-                  staticRow.setPadding(
+                  static.gravity =
+                      Gravity.CENTER_VERTICAL
+
+                  static.setPadding(
                       dp(20),
                       0,
-                      dp(10),
+                      0,
                       0
                   )
 
-                  staticRow.setOnClickListener {
+                  static.setOnClickListener {
                       showStaticWallpapers()
                   }
 
                   page.addView(
-                      staticRow,
+                      static,
                       LinearLayout.LayoutParams(
                           -1,
-                          dp(65)
+                          dp(70)
                       )
                   )
 
                   setContentView(page)
               }
 
-              private fun addWallpaperCard(
+              private fun wallpaperCard(
                   parent: LinearLayout,
                   title: String,
-                  color: Int,
                   action: () -> Unit
               ) {
-                  val card = text(
-                      title,
-                      18f,
-                      Color.WHITE
+
+                  val card =
+                      makeText(
+                          title,
+                          18f,
+                          Color.WHITE
+                      )
+
+                  card.setBackgroundColor(
+                      Color.rgb(70,70,70)
                   )
 
-                  card.gravity = Gravity.CENTER
-                  card.setBackgroundColor(color)
                   card.setOnClickListener {
                       action()
                   }
@@ -617,116 +716,60 @@ jobs:
                           dp(150),
                           1f
                       ).apply {
-                          marginEnd = dp(8)
+                          marginEnd =
+                              dp(8)
                       }
                   )
-              }
-
-              private val galleryLauncher =
-                  registerForActivityResult(
-                      ActivityResultContracts.GetContent()
-                  ) { uri: Uri? ->
-                      if (uri != null) {
-                          setWallpaperFromUri(uri)
-                      }
-                  }
-
-              private fun setWallpaperFromUri(uri: Uri) {
-                  try {
-                      val input = contentResolver.openInputStream(uri)
-                      val bitmap =
-                          android.graphics.BitmapFactory
-                              .decodeStream(input)
-
-                      val wm =
-                          android.app.WallpaperManager
-                              .getInstance(this)
-
-                      wm.setBitmap(bitmap)
-
-                      Toast.makeText(
-                          this,
-                          "Wallpaper applied",
-                          Toast.LENGTH_SHORT
-                      ).show()
-
-                      showHome()
-                  } catch (e: Exception) {
-                      Toast.makeText(
-                          this,
-                          "Could not apply wallpaper",
-                          Toast.LENGTH_SHORT
-                      ).show()
-                  }
               }
 
               private fun showStaticWallpapers() {
-                  val page = basePage("My Wallpaper")
 
-                  val title = text(
-                      "Internal Wallpaper",
-                      20f,
-                      Color.BLACK
-                  )
-
-                  title.gravity = Gravity.START
-                  title.setPadding(
-                      dp(20),
-                      dp(15),
-                      0,
-                      dp(15)
-                  )
-
-                  page.addView(title)
-
-                  val grid = GridLayout(this)
-                  grid.columnCount = 3
-                  grid.setPadding(
-                      dp(15),
-                      0,
-                      dp(15),
-                      dp(20)
-                  )
-
-                  val wallpapers = listOf(
-                      Color.rgb(145,120,230),
-                      Color.rgb(145,230,90),
-                      Color.rgb(190,180,190),
-                      Color.rgb(20,20,20),
-                      Color.rgb(180,150,230),
-                      Color.rgb(100,160,240),
-                      Color.rgb(190,220,180),
-                      Color.rgb(170,150,220),
-                      Color.rgb(100,180,220)
-                  )
-
-                  wallpapers.forEach { color ->
-                      val w = View(this)
-                      w.setBackgroundColor(color)
-
-                      w.setOnClickListener {
-                          applyColorWallpaper(color)
-                      }
-
-                      grid.addView(
-                          w,
-                          GridLayout.LayoutParams().apply {
-                              width = 0
-                              height = dp(230)
-                              columnSpec =
-                                  GridLayout.spec(
-                                      GridLayout.UNDEFINED,
-                                      1f
-                                  )
-                              setMargins(
-                                  dp(5),
-                                  dp(5),
-                                  dp(5),
-                                  dp(5)
-                              )
-                          }
+                  val page =
+                      settingsPage(
+                          "My Wallpaper"
                       )
-                  }
+
+                  page.addView(
+                      makeText(
+                          "Internal Wallpaper",
+                          20f,
+                          Color.BLACK
+                      ),
+                      LinearLayout.LayoutParams(
+                          -1,
+                          dp(65)
+                      ).apply {
+                          leftMargin =
+                              dp(20)
+                      }
+                  )
+
+                  val grid =
+                      RecyclerView(this)
+
+                  grid.layoutManager =
+                      GridLayoutManager(
+                          this,
+                          3
+                      )
+
+                  val colors =
+                      listOf(
+                          "#7356A6",
+                          "#6FAE6C",
+                          "#B5B0A7",
+                          "#111111",
+                          "#8E6FC4",
+                          "#4B8CCF",
+                          "#91A87D",
+                          "#7D65A8",
+                          "#6B9FD1"
+                      )
+
+                  grid.adapter =
+                      ColorWallpaperAdapter(
+                          colors
+                      )
 
                   page.addView(
                       grid,
@@ -740,97 +783,127 @@ jobs:
                   setContentView(page)
               }
 
-              private fun applyColorWallpaper(color: Int) {
-                  val drawable =
-                      android.graphics.drawable.ColorDrawable(
-                          color
-                      )
+              private fun applyWallpaper(
+                  uri: Uri
+              ) {
 
-                  android.app.WallpaperManager
-                      .getInstance(this)
-                      .setDrawable(drawable)
+                  try {
 
-                  Toast.makeText(
-                      this,
-                      "Wallpaper applied",
-                      Toast.LENGTH_SHORT
-                  ).show()
+                      val bitmap =
+                          android.graphics.BitmapFactory
+                              .decodeStream(
+                                  contentResolver
+                                      .openInputStream(uri)
+                              )
 
-                  showHome()
+                      WallpaperManager
+                          .getInstance(this)
+                          .setBitmap(bitmap)
+
+                      showHome()
+
+                  } catch (e: Exception) {
+
+                      Toast.makeText(
+                          this,
+                          "Wallpaper failed",
+                          Toast.LENGTH_SHORT
+                      ).show()
+                  }
               }
 
               private fun showAppDrawer() {
-                  val page = FrameLayout(this)
-                  page.setBackgroundColor(Color.BLACK)
 
-                  val recycler =
+                  val root =
+                      FrameLayout(this)
+
+                  root.setBackgroundColor(
+                      Color.BLACK
+                  )
+
+                  val list =
                       RecyclerView(this)
 
-                  recycler.layoutManager =
-                      GridLayoutManager(this, 4)
-
-                  recycler.adapter =
-                      AppAdapter(
-                          getLaunchableApps()
+                  list.layoutManager =
+                      GridLayoutManager(
+                          this,
+                          4
                       )
 
-                  page.addView(
-                      recycler,
+                  list.adapter =
+                      AppAdapter(
+                          getLauncherApps()
+                      )
+
+                  root.addView(
+                      list,
                       FrameLayout.LayoutParams(
                           -1,
                           -1
                       ).apply {
-                          topMargin = dp(20)
-                          bottomMargin = dp(90)
+                          bottomMargin =
+                              dp(90)
                       }
                   )
 
-                  val search = text(
-                      "🔎   Search for apps",
-                      17f,
-                      Color.LTGRAY
-                  )
+                  val search =
+                      makeText(
+                          "⌕   Search for apps",
+                          17f,
+                          Color.LTGRAY
+                      )
 
                   search.setBackgroundColor(
-                      Color.rgb(65,65,65)
+                      Color.rgb(
+                          55,
+                          55,
+                          55
+                      )
                   )
 
                   search.setOnClickListener {
                       showHomeScreenMode()
                   }
 
-                  page.addView(
+                  root.addView(
                       search,
                       FrameLayout.LayoutParams(
                           -1,
-                          dp(60),
+                          dp(58),
                           Gravity.BOTTOM
                       ).apply {
-                          leftMargin = dp(20)
-                          rightMargin = dp(20)
-                          bottomMargin = dp(20)
+                          leftMargin =
+                              dp(15)
+                          rightMargin =
+                              dp(15)
+                          bottomMargin =
+                              dp(15)
                       }
                   )
 
-                  setContentView(page)
+                  setContentView(root)
               }
 
               private fun showHomeScreenMode() {
-                  val page = basePage("Home Screen Mode")
 
-                  val modes = LinearLayout(this)
-                  modes.orientation =
-                      LinearLayout.HORIZONTAL
+                  val page =
+                      settingsPage(
+                          "Home Screen Mode"
+                      )
+
+                  val modes =
+                      LinearLayout(this).apply {
+                          orientation =
+                              LinearLayout.HORIZONTAL
+                      }
 
                   addMode(
                       modes,
-                      "08:45\n\n▦ ▦ ▦\n▦ ▦ ▦",
                       "Classic Mode"
                   )
 
                   addMode(
                       modes,
-                      "08:45\n\n▦ ▦ ▦ ▦\n▦ ▦ ▦ ▦\n▦ ▦ ▦ ▦",
                       "A-Z Mode"
                   )
 
@@ -838,7 +911,7 @@ jobs:
                       modes,
                       LinearLayout.LayoutParams(
                           -1,
-                          dp(390)
+                          dp(300)
                       )
                   )
 
@@ -850,13 +923,13 @@ jobs:
                       showOrientationDialog()
                   }
 
-                  addSwitchSetting(
+                  addSwitch(
                       page,
                       "Add Newly Installed Apps to\nHome Screen",
                       true
                   )
 
-                  addSwitchSetting(
+                  addSwitch(
                       page,
                       "App Classification",
                       false
@@ -867,45 +940,38 @@ jobs:
 
               private fun addMode(
                   parent: LinearLayout,
-                  preview: String,
-                  label: String
+                  title: String
               ) {
+
                   val box =
-                      LinearLayout(this)
-
-                  box.orientation =
-                      LinearLayout.VERTICAL
-
-                  box.gravity =
-                      Gravity.CENTER
-
-                  val p = text(
-                      preview,
-                      17f,
-                      Color.DKGRAY
-                  )
-
-                  p.setBackgroundColor(
-                      Color.rgb(245,245,245)
-                  )
+                      LinearLayout(this).apply {
+                          orientation =
+                              LinearLayout.VERTICAL
+                          gravity =
+                              Gravity.CENTER
+                      }
 
                   box.addView(
-                      p,
+                      makeText(
+                          "08:45\n\n▦ ▦ ▦\n▦ ▦ ▦",
+                          16f,
+                          Color.DKGRAY
+                      ),
                       LinearLayout.LayoutParams(
-                          dp(220),
-                          dp(300)
+                          dp(150),
+                          dp(220)
                       )
                   )
 
                   box.addView(
-                      text(
-                          label,
-                          18f,
+                      makeText(
+                          "◉  $title",
+                          17f,
                           Color.BLACK
                       ),
                       LinearLayout.LayoutParams(
                           -1,
-                          dp(50)
+                          dp(55)
                       )
                   )
 
@@ -923,21 +989,30 @@ jobs:
                   parent: LinearLayout,
                   title: String,
                   value: String,
-                  click: () -> Unit
+                  action: () -> Unit
               ) {
-                  val row = LinearLayout(this)
-                  row.gravity =
-                      Gravity.CENTER_VERTICAL
 
-                  val t = text(
-                      title,
-                      19f,
-                      Color.BLACK
-                  )
-                  t.gravity = Gravity.START
+                  val row =
+                      LinearLayout(this).apply {
+                          gravity =
+                              Gravity.CENTER_VERTICAL
+                          setPadding(
+                              dp(20),
+                              0,
+                              dp(20),
+                              0
+                          )
+                          setOnClickListener {
+                              action()
+                          }
+                      }
 
                   row.addView(
-                      t,
+                      makeText(
+                          title,
+                          18f,
+                          Color.BLACK
+                      ),
                       LinearLayout.LayoutParams(
                           0,
                           dp(75),
@@ -945,173 +1020,138 @@ jobs:
                       )
                   )
 
-                  val v = text(
-                      "$value  ▼",
-                      16f,
-                      Color.GRAY
-                  )
-
                   row.addView(
-                      v,
+                      makeText(
+                          "$value  ▼",
+                          15f,
+                          Color.GRAY
+                      ),
                       LinearLayout.LayoutParams(
                           dp(130),
                           dp(75)
                       )
                   )
 
-                  row.setOnClickListener {
-                      click()
-                  }
-
-                  parent.addView(
-                      row,
-                      LinearLayout.LayoutParams(
-                          -1,
-                          dp(75)
-                      ).apply {
-                          leftMargin = dp(20)
-                          rightMargin = dp(20)
-                      }
-                  )
+                  parent.addView(row)
               }
 
-              private fun showOrientationDialog() {
-                  val dialog =
-                      Dialog(this)
-
-                  val box =
-                      LinearLayout(this)
-
-                  box.orientation =
-                      LinearLayout.VERTICAL
-
-                  box.setPadding(
-                      dp(25),
-                      dp(15),
-                      dp(25),
-                      dp(15)
-                  )
-
-                  val vertical =
-                      text(
-                          "✓  Vertical",
-                          18f,
-                          Color.rgb(20,110,230)
-                      )
-
-                  val horizontal =
-                      text(
-                          "Horizontal",
-                          18f,
-                          Color.BLACK
-                      )
-
-                  box.addView(
-                      vertical,
-                      LinearLayout.LayoutParams(
-                          dp(250),
-                          dp(65)
-                      )
-                  )
-
-                  box.addView(
-                      horizontal,
-                      LinearLayout.LayoutParams(
-                          dp(250),
-                          dp(65)
-                      )
-                  )
-
-                  vertical.setOnClickListener {
-                      dialog.dismiss()
-                  }
-
-                  horizontal.setOnClickListener {
-                      dialog.dismiss()
-                  }
-
-                  dialog.setContentView(box)
-                  dialog.window?.setBackgroundDrawable(
-                      android.graphics.drawable.ColorDrawable(
-                          Color.WHITE
-                      )
-                  )
-
-                  dialog.show()
-              }
-
-              private fun addSwitchSetting(
+              private fun addSwitch(
                   parent: LinearLayout,
                   title: String,
-                  initial: Boolean
+                  checked: Boolean
               ) {
+
                   val row =
-                      LinearLayout(this)
-
-                  row.gravity =
-                      Gravity.CENTER_VERTICAL
-
-                  val t =
-                      text(
-                          title,
-                          19f,
-                          Color.BLACK
-                      )
-
-                  t.gravity = Gravity.START
+                      LinearLayout(this).apply {
+                          gravity =
+                              Gravity.CENTER_VERTICAL
+                          setPadding(
+                              dp(20),
+                              0,
+                              dp(20),
+                              0
+                          )
+                      }
 
                   row.addView(
-                      t,
+                      makeText(
+                          title,
+                          18f,
+                          Color.BLACK
+                      ),
                       LinearLayout.LayoutParams(
                           0,
-                          dp(90),
+                          dp(85),
                           1f
                       )
                   )
 
-                  val sw =
-                      Switch(this)
-
-                  sw.isChecked =
-                      initial
-
-                  row.addView(sw)
-
-                  parent.addView(
-                      row,
-                      LinearLayout.LayoutParams(
-                          -1,
-                          dp(90)
-                      ).apply {
-                          leftMargin = dp(20)
-                          rightMargin = dp(20)
+                  row.addView(
+                      Switch(this).apply {
+                          isChecked =
+                              checked
                       }
                   )
+
+                  parent.addView(row)
               }
 
-              private fun basePage(
-                  title: String
-              ): LinearLayout {
-                  val page =
-                      LinearLayout(this)
+              private fun showOrientationDialog() {
 
-                  page.orientation =
-                      LinearLayout.VERTICAL
+                  val dialog =
+                      Dialog(this)
 
-                  page.setBackgroundColor(
-                      Color.WHITE
+                  val layout =
+                      LinearLayout(this).apply {
+                          orientation =
+                              LinearLayout.VERTICAL
+                          setPadding(
+                              dp(20),
+                              dp(10),
+                              dp(20),
+                              dp(10)
+                          )
+                      }
+
+                  layout.addView(
+                      makeText(
+                          "✓  Vertical",
+                          18f,
+                          Color.BLUE
+                      ),
+                      LinearLayout.LayoutParams(
+                          dp(240),
+                          dp(60)
+                      )
                   )
 
-                  val top =
-                      LinearLayout(this)
+                  layout.addView(
+                      makeText(
+                          "Horizontal",
+                          18f,
+                          Color.BLACK
+                      ),
+                      LinearLayout.LayoutParams(
+                          dp(240),
+                          dp(60)
+                      )
+                  )
 
-                  top.gravity =
-                      Gravity.CENTER_VERTICAL
+                  dialog.setContentView(
+                      layout
+                  )
+
+                  dialog.window
+                      ?.setBackgroundDrawableResource(
+                          android.R.color.white
+                      )
+
+                  dialog.show()
+              }
+
+              private fun settingsPage(
+                  title: String
+              ): LinearLayout {
+
+                  val page =
+                      LinearLayout(this).apply {
+                          orientation =
+                              LinearLayout.VERTICAL
+                          setBackgroundColor(
+                              Color.WHITE
+                          )
+                      }
+
+                  val top =
+                      LinearLayout(this).apply {
+                          gravity =
+                              Gravity.CENTER_VERTICAL
+                      }
 
                   val back =
-                      text(
+                      makeText(
                           "‹",
-                          42f,
+                          40f,
                           Color.BLACK
                       )
 
@@ -1122,15 +1162,15 @@ jobs:
                   top.addView(
                       back,
                       LinearLayout.LayoutParams(
-                          dp(70),
+                          dp(65),
                           dp(75)
                       )
                   )
 
                   top.addView(
-                      text(
+                      makeText(
                           title,
-                          28f,
+                          27f,
                           Color.BLACK
                       ),
                       LinearLayout.LayoutParams(
@@ -1141,125 +1181,81 @@ jobs:
                   )
 
                   page.addView(
-                      top,
-                      LinearLayout.LayoutParams(
-                          -1,
-                          dp(80)
-                      )
+                      top
                   )
 
                   return page
               }
 
-              private fun launch(
-                  packageName: String
-              ) {
-                  try {
-                      val intent =
-                          packageManager
-                              .getLaunchIntentForPackage(
-                                  packageName
-                              )
-
-                      if (intent != null) {
-                          startActivity(intent)
-                      }
-                  } catch (_: Exception) {
-                  }
-              }
-
-              private fun getLaunchableApps():
-                  List<AppInfo> {
+              private fun getLauncherApps():
+                  List<android.content.pm.ResolveInfo> {
 
                   val intent =
                       Intent(
-                          Intent.ACTION_MAIN,
-                          null
-                      ).apply {
-                          addCategory(
-                              Intent.CATEGORY_LAUNCHER
-                          )
-                      }
+                          Intent.ACTION_MAIN
+                      )
+
+                  intent.addCategory(
+                      Intent.CATEGORY_LAUNCHER
+                  )
 
                   return packageManager
                       .queryIntentActivities(
                           intent,
                           0
                       )
-                      .map {
-                          AppInfo(
-                              it.activityInfo.packageName,
-                              it.loadLabel(
-                                  packageManager
-                              ).toString(),
-                              it.loadIcon(
-                                  packageManager
-                              )
-                          )
-                      }
-                      .distinctBy {
-                          it.packageName
-                      }
                       .sortedBy {
-                          it.label.lowercase()
+                          it.loadLabel(
+                              packageManager
+                          ).toString()
+                              .lowercase()
                       }
               }
 
-              data class AppInfo(
-                  val packageName: String,
-                  val label: String,
-                  val icon:
-                      android.graphics.drawable.Drawable
-              )
-
               inner class AppAdapter(
                   private val apps:
-                      List<AppInfo>
+                      List<android.content.pm.ResolveInfo>
               ) :
-                  RecyclerView.Adapter<AppAdapter.Holder>() {
+                  RecyclerView.Adapter<AppAdapter.VH>() {
 
-                  inner class Holder(
-                      val layout:
+                  inner class VH(
+                      val view:
                           LinearLayout
                   ) :
                       RecyclerView.ViewHolder(
-                          layout
+                          view
                       )
 
                   override fun onCreateViewHolder(
                       parent: ViewGroup,
-                      viewType: Int
-                  ): Holder {
+                      type: Int
+                  ): VH {
 
                       val layout =
                           LinearLayout(
                               this@MainActivity
-                          )
+                          ).apply {
+                              orientation =
+                                  LinearLayout.VERTICAL
+                              gravity =
+                                  Gravity.CENTER
+                              setPadding(
+                                  dp(5),
+                                  dp(12),
+                                  dp(5),
+                                  dp(12)
+                              )
+                          }
 
-                      layout.orientation =
-                          LinearLayout.VERTICAL
-
-                      layout.gravity =
-                          Gravity.CENTER
-
-                      layout.setPadding(
-                          dp(5),
-                          dp(12),
-                          dp(5),
-                          dp(12)
-                      )
-
-                      return Holder(
-                          layout
-                      )
+                      return VH(layout)
                   }
 
                   override fun onBindViewHolder(
-                      holder: Holder,
+                      holder: VH,
                       position: Int
                   ) {
-                      holder.layout
-                          .removeAllViews()
+
+                      holder.view.removeAllViews()
 
                       val app =
                           apps[position]
@@ -1270,57 +1266,130 @@ jobs:
                           )
 
                       icon.setImageDrawable(
-                          app.icon
+                          app.loadIcon(
+                              packageManager
+                          )
                       )
 
-                      holder.layout.addView(
+                      holder.view.addView(
                           icon,
                           LinearLayout.LayoutParams(
-                              dp(68),
-                              dp(68)
+                              dp(65),
+                              dp(65)
                           )
                       )
 
-                      holder.layout.addView(
-                          text(
-                              app.label,
-                              13f
-                          ),
-                          LinearLayout.LayoutParams(
-                              -1,
-                              dp(35)
+                      holder.view.addView(
+                          makeText(
+                              app.loadLabel(
+                                  packageManager
+                              ).toString(),
+                              12f
                           )
                       )
 
-                      holder.layout.setOnClickListener {
-                          launch(
-                              app.packageName
-                          )
+                      holder.view.setOnClickListener {
+
+                          val intent =
+                              packageManager
+                                  .getLaunchIntentForPackage(
+                                      app.activityInfo
+                                          .packageName
+                                  )
+
+                          intent?.let {
+                              startActivity(it)
+                          }
                       }
                   }
 
-                  override fun getItemCount():
-                      Int =
+                  override fun getItemCount() =
                       apps.size
+              }
+
+              inner class ColorWallpaperAdapter(
+                  private val colors:
+                      List<String>
+              ) :
+                  RecyclerView.Adapter<ColorWallpaperAdapter.VH>() {
+
+                  inner class VH(
+                      val view: View
+                  ) :
+                      RecyclerView.ViewHolder(
+                          view
+                      )
+
+                  override fun onCreateViewHolder(
+                      parent: ViewGroup,
+                      type: Int
+                  ): VH {
+
+                      val view =
+                          View(
+                              this@MainActivity
+                          )
+
+                      view.layoutParams =
+                          RecyclerView.LayoutParams(
+                              -1,
+                              dp(230)
+                          )
+
+                      return VH(view)
+                  }
+
+                  override fun onBindViewHolder(
+                      holder: VH,
+                      position: Int
+                  ) {
+
+                      val color =
+                          Color.parseColor(
+                              colors[position]
+                          )
+
+                      holder.view.setBackgroundColor(
+                          color
+                      )
+
+                      holder.view.setOnClickListener {
+
+                          WallpaperManager
+                              .getInstance(
+                                  this@MainActivity
+                              )
+                              .setResource(
+                                  android.R.color.black
+                              )
+
+                          Toast.makeText(
+                              this@MainActivity,
+                              "Wallpaper applied",
+                              Toast.LENGTH_SHORT
+                          ).show()
+
+                          showHome()
+                      }
+                  }
+
+                  override fun getItemCount() =
+                      colors.size
               }
           }
           EOF
 
-          if ! command -v gradle >/dev/null 2>&1; then
-            sudo apt-get update
-            sudo apt-get install -y gradle
-          fi
-
+      - name: Generate Gradle wrapper
+        run: |
           gradle wrapper --gradle-version 8.11.1
 
-      - name: Build XOSLauncher APK
+      - name: Build debug APK
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace
+          ./gradlew assembleDebug --no-daemon
 
       - name: Upload XOSLauncher APK
         uses: actions/upload-artifact@v4
         with:
           name: XOSLauncher-APK
-          path: app/build/outputs/apk/debug/*.apk
-          retention-days: 30
+          path: app/build/outputs/apk/debug/app-debug.apk
